@@ -1,0 +1,950 @@
+---
+title: "Rectal IRST_Molinari et al Final Analysis 01232024"
+output: html_notebook
+---
+library(swimplot)
+library(grid)
+library(gtable)
+library(readr) 
+library(mosaic)
+library(dplyr) 
+library(survival) 
+library(survminer) 
+library(ggplot2)
+library(scales)
+library(coxphf)
+library(ggthemes)
+library(tidyverse)
+library(gtsummary)
+library(flextable)
+library(parameters)
+library(car)
+library(ComplexHeatmap)
+library(tidyverse)
+library(readxl)
+library(survival)
+library(janitor)
+library(DT)
+library(pROC)
+
+#ctDNA positivity by stage and window
+```{r}
+#Number of Pts at Baseline - percentage positivity by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+total_base <- sum(!is.na(circ_data$ctDNA.Baseline))
+print(total_base)
+circ_data$ctDNA.Baseline <- as.factor(circ_data$ctDNA.Baseline)
+cont_table_base <- table(circ_data$cStage, circ_data$ctDNA.Baseline)
+print(cont_table_base)
+
+#Number of Pts post NAT - percentage positivity by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+total_postnat <- sum(!is.na(circ_data$ctDNA.postNAC))
+print(total_postnat)
+circ_data$ctDNA.postNAC <- as.factor(circ_data$ctDNA.postNAC)
+cont_table_postnat <- table(circ_data$cStage, circ_data$ctDNA.postNAC)
+print(cont_table_postnat)
+
+#Number of Pts post-surgery - percentage positivity by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+total_mrd <- sum(!is.na(circ_data$ctDNA.postop))
+print(total_mrd)
+circ_data$ctDNA.postop <- as.factor(circ_data$ctDNA.postop)
+cont_table_mrd <- table(circ_data$cStage, circ_data$ctDNA.postop)
+print(cont_table_mrd)
+```
+
+#Radiological Recurrence rates of ctDNA positive by stage and window
+```{r}
+#Number of Pts at Baseline - percentage of radiological recurrence by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.Baseline=="POSITIVE",]
+circ_datadf <- as.data.frame(circ_data)
+
+total_base <- sum(!is.na(circ_data$RFS.Event))
+print(total_base)
+circ_data$RFS.Event <- as.factor(circ_data$RFS.Event)
+cont_table_base <- table(circ_data$cStage, circ_data$RFS.Event)
+print(cont_table_base)
+
+#Number of Pts post NAT - percentage of radiological recurrence by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.postNAC=="POSITIVE",]
+circ_datadf <- as.data.frame(circ_data)
+
+total_postnat <- sum(!is.na(circ_data$RFS.Event))
+print(total_postnat)
+circ_data$RFS.Event <- as.factor(circ_data$RFS.Event)
+cont_table_postnat <- table(circ_data$cStage, circ_data$RFS.Event)
+print(cont_table_postnat)
+
+#Number of Pts post-surgery - percentage of radiological recurrence by stage
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.postop=="POSITIVE",]
+circ_datadf <- as.data.frame(circ_data)
+
+total_mrd <- sum(!is.na(circ_data$RFS.Event))
+print(total_mrd)
+circ_data$RFS.Event <- as.factor(circ_data$RFS.Event)
+cont_table_mrd <- table(circ_data$cStage, circ_data$RFS.Event)
+print(cont_table_mrd)
+```
+
+#Summary Table
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+circ_data_subset <- circ_data %>%
+  select(
+    Gender,
+    Age,
+    Height,
+    Weight,
+    cStage,
+    cStage.TNM,
+    NAT.Cycles,
+    NAT.Regimen,
+    Downstaging,
+    postNAT.TNM,
+    NAR,
+    Surgery.Type,
+    pStage,
+    pStage.TNM,
+    pN,
+    pCR,
+    Grade,
+    MSI.status,
+    Path.Response,
+    ACT,
+    ACT.Regimen,
+    RFS.Event,
+    Rec.Site,
+    OS.Event,
+    RFS.months,
+    Total.FU.months) %>%
+  mutate(
+    Gender = factor(Gender, levels = c("Male", "Female")),
+    Age = as.numeric(Age),
+    Height = as.numeric(Height),
+    Weight = as.numeric(Weight),
+    cStage = factor(cStage, levels = c("I", "II", "III")),
+    cStage.TNM = factor(cStage.TNM, levels = c("T2N0M0", "T2N1M0", "T3/T4N1M0", "T3N0M0", "T3N2M0", "T4N2M0")),
+    NAT.Cycles = as.numeric(NAT.Cycles),
+    NAT.Regimen = factor(NAT.Regimen, levels = c("FOLFOX", "Capecitabine")),
+    Downstaging = factor(Downstaging, levels = c("NR", "R"), labels = c("Non Responders", "Responders")),
+    postNAT.TNM = factor(postNAT.TNM, levels = c("T0N0M0", "T1/T2N0M0", "T3N0M0", "T3/T4N1M0", "T1/T2N2M0", "T3N2M0")),
+    NAR = as.numeric(NAR),
+    Surgery.Type = factor(Surgery.Type, levels = c("RAR", "MILES")),
+    pStage = factor(pStage, levels = c("0","I", "II", "III")),
+    pStage.TNM = factor(pStage.TNM, levels = c("T0N0M0", "T1/T2N0M0", "T3N0M0", "T2N1M0", "T3/T4N1M0", "T3N2M0", "T4N2M0")),
+    pN = factor(pN, levels = c("0", "1", "2"), labels = c("N0", "N1", "N2")),
+    pCR = factor(pCR, levels = c("TRUE", "FALSE"), labels = c("Yes", "No")),
+    Grade = factor(Grade, levels = c("1", "2", "3"), labels = c("G1", "G2", "G3")),
+    MSI.status = factor(MSI.status, levels = c("MSS", "MSI"), labels = c("MSS", "MSI-High")),
+    Path.Response = factor(Path.Response, levels = c("Minimal Regression", "Moderate Regression", "Near Complete Regression", "Complete Regression")),
+    ACT = factor(ACT, levels = c("FALSE", "TRUE"), labels = c("No adjuvant", "Adjuvant")),
+    ACT.Regimen = factor(ACT.Regimen, levels = c("FOLFOX", "CAPOX", "Capecitabine")),
+    RFS.Event = factor(RFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence")),
+    Rec.Site = factor(Rec.Site, levels = c("Lung", "Lung, Liver", "Liver", "Lung, Liver, Bone", "Bone, Adrenal", "Pelvis")),
+    OS.Event = factor(OS.Event, levels = c("FALSE", "TRUE"), labels = c("Alive", "Deceased")),
+    RFS.months = as.numeric(RFS.months),
+    Total.FU.months = as.numeric(Total.FU.months)) 
+table1 <- circ_data_subset %>%
+  tbl_summary(
+    statistic = list(
+      all_continuous() ~ "{median} ({min} - {max})",
+      all_categorical() ~ "{n} ({p}%)")) %>%
+  bold_labels()
+table1
+fit1 <- as_flex_table(
+  table1,
+  include = everything(),
+  return_calls = FALSE,
+  strip_md_bold = TRUE)
+fit1
+save_as_docx(fit1, path= "~/Downloads/table1.docx")
+```
+
+
+
+#Heatmap for the clinical factors
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+circ_data <- circ_data %>% arrange(cStage)
+circ_datadf <- as.data.frame(circ_data)
+
+ha <- HeatmapAnnotation(
+  cStage = circ_data$cStage,
+  Gender = circ_data$Gender,
+  NAT.Regimen = circ_data$NAT.Regimen,
+  Downstaging = circ_data$Downstaging,
+  NAR.Score = circ_data$NAR.Score,
+  pStage = circ_data$pStage,
+  Grade = circ_data$Grade,
+  ACT = circ_data$ACT,
+  ACT.Regimen = circ_data$ACT.Regimen,
+  ctDNA.Baseline = circ_data$ctDNA.Baseline,
+  ctDNA.postNAC = circ_data$ctDNA.postNAC,
+  ctDNA.postop = circ_data$ctDNA.postop,
+  ctDNA.anytime = circ_data$ctDNA.anytime,
+  RFS.Event = circ_data$RFS.Event,
+  OS.Event = circ_data$OS.Event,
+  
+    col = list(cStage = c("I" = "seagreen1", "II" = "khaki", "III" = "orange"),
+    Gender = c("Female" = "goldenrod" , "Male" = "blue4"),
+    NAT.Regimen = c("FOLFOX" = "coral", "Capecitabine" ="darkgreen"),
+    Downstaging = c("R" = "yellow", "NR" ="brown"),
+    NAR.Score = c("Low" = "lightblue", "Mid/High" ="orange"),
+    pStage = c("0" = "khaki","I" = "seagreen2", "II" = "cornflowerblue", "III" ="darkmagenta"),
+    Grade = c("1" = "yellow3", "2" ="darkgreen", "3" = "brown2"),
+    ACT = c("TRUE" = "darkmagenta", "FALSE" = "gray"),
+    ACT.Regimen = c("FOLFOX" = "lightblue", "CAPOX" = "orange2", "Capecitabine" ="khaki"),
+    ctDNA.Baseline = c("POSITIVE" = "red3", "NEGATIVE" ="blue"),
+    ctDNA.postNAC = c("POSITIVE" = "red3", "NEGATIVE" ="blue"),
+    ctDNA.postop = c("POSITIVE" = "red3", "NEGATIVE" ="blue"),
+    ctDNA.anytime = c("POSITIVE" = "red3", "NEGATIVE" ="blue"),
+    RFS.Event = c("TRUE" = "red3", "FALSE" ="blue"),
+    OS.Event = c("TRUE" = "black", "FALSE" ="grey")
+)
+)
+ht <- Heatmap(matrix(nrow = 0, ncol = length(circ_data$cStage)),show_row_names = FALSE,cluster_rows = F,cluster_columns = FALSE, top_annotation = ha)
+pdf("heatmap.pdf",width = 7, height = 7)
+draw(ht, annotation_legend_side = "bottom")
+dev.off()
+```
+
+#Overview plot
+```{r}
+library(swimplot)
+library(ggplot2)
+library(grid)
+library(gtable)
+
+##Overview plot
+setwd("~/Downloads") 
+clinstage<- read.csv("IRST_Rectal_OP.csv")
+clinstage_df<- as.data.frame(clinstage)
+
+#Display the swimmer plot with the label box
+oplot<-swimmer_plot(df=clinstage_df,
+                    id='PatientName',
+                    end='fu.diff.months',
+                    fill='gray',
+                    width=.01,)
+oplot <- oplot + theme(panel.border = element_blank())
+oplot <- oplot + scale_y_continuous(breaks = seq(-12, 108, by = 6))
+oplot <- oplot + labs(x ="Patients" , y="Months from Surgery")
+oplot
+
+
+##plot events
+oplot_ev1 <- oplot + swimmer_points(df_points=clinstage_df,
+                                    id='PatientName',
+                                    time='date.diff.months',
+                                    name_shape ='Event_type',
+                                    name_col = 'Event',
+                                    size=3.5,fill='black',
+                                    #col='darkgreen'
+)
+oplot_ev1
+
+#Shape customization to Event_type
+
+oplot_ev1.1 <- oplot_ev1 + ggplot2::scale_shape_manual(name="Event_type",values=c(1,16,6,0,18,18,4),breaks=c('ctDNA_neg','ctDNA_pos','Imaging','Response','Surgery','Biopsy', 'Death'))
+
+oplot_ev1.1
+
+#plot treatment
+
+oplot_ev2 <- oplot_ev1.1 + swimmer_lines(df_lines=clinstage_df,
+                                         id='PatientName',
+                                         start='Tx_start.months',
+                                         end='Tx_end.months',
+                                         name_col='Tx_type',
+                                         size=3.5,
+                                         name_alpha = 1.0)
+oplot_ev2 <- oplot_ev2 + guides(linetype = guide_legend(override.aes = list(size = 5, color = "black")))
+oplot_ev2  
+
+
+#colour customization
+##Dark Gray=MRI diagnosis, purple=ACT, Black=Death, Red=PD, ctDNA negative=white, ctDNA positive=black, surgery=blue, Resp=Dark Green, 
+oplot_ev2.2 <- oplot_ev2 + ggplot2::scale_color_manual(name="Event",values=c( "orange","darkgray","black", "black", "darkgray", "purple", "green", "orange", "red", "darkgreen", "blue"))
+oplot_ev2.2
+```
+
+
+#DFS by ctDNA post-NAT
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.postNAC, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.postNAC, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","red"), title="DFS - ctDNA post-NAT", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("ctDNA Negative", "ctDNA Positive"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$ctDNA.postNAC <- factor(circ_data$ctDNA.postNAC, levels=c("NEGATIVE","POSITIVE"))
+cox_fit <- coxph(surv_object ~ ctDNA.postNAC, data=circ_data) 
+ggforest(cox_fit,data = circ_data) 
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+
+#Extract values for HR, 95% CI, and p-value
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+#Fisher plot for ctDNA post-NAT and Rec Status
+circ_data$ctDNA.postNAC <- factor(circ_data$ctDNA.postNAC, levels = c("NEGATIVE", "POSITIVE"), labels = c("ctDNA(-)", "ctDNA(+)"))
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.postNAC, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA post-NAT (n = 30)", x = "ctDNA", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#DFS by ctDNA clearance post-NAT
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.NAC.Clearance, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.NAC.Clearance, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","red"), title="DFS - ctDNA Clearance post-NAT", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("Clearance", "No Clearance"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$ctDNA.NAC.Clearance <- factor(circ_data$ctDNA.NAC.Clearance, levels=c("TRUE","FALSE"))
+cox_fit <- coxph(surv_object ~ ctDNA.NAC.Clearance, data=circ_data) 
+ggforest(cox_fit,data = circ_data) 
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+
+#Extract values for HR, 95% CI, and p-value
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+#Fisher plot for ctDNA clearance post-NAT and Rec Status
+circ_data$ctDNA.NAC.Clearance <- factor(circ_data$ctDNA.NAC.Clearance, levels = c("TRUE", "FALSE"), labels = c("Clearance", "No Clearance"))
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.NAC.Clearance, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA Clearance post-NAT (n = 27)", x = "ctDNA", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#Logistic regression for association between ctDNA Clearance & Radiological Recurrence
+```{r}
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+#Fisher plot for ctDNA clearance post-NAT and Rec Status
+circ_data$ctDNA.NAC.Clearance <- factor(circ_data$ctDNA.NAC.Clearance, levels = c("TRUE", "FALSE"), labels = c("Clearance", "No Clearance"))
+circ_data$Downstaging <- factor(circ_data$Downstaging, levels = c("R", "NR"), labels = c("Responders", "Non-Responders"))
+contingency_table <- table(circ_data$ctDNA.NAC.Clearance, circ_data$Downstaging)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA Clearance post-NAT (n = 27)", x = "ctDNA", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("Responders" = "lightblue3", "Non-Responders" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+#Vertical Fisher plot for ctDNA clearance post-NAT and Rec Status
+circ_data$ctDNA.NAC.Clearance <- factor(circ_data$ctDNA.NAC.Clearance, levels = c("TRUE", "FALSE"), labels = c("Clearance", "No Clearance"))
+circ_data$Downstaging <- factor(circ_data$Downstaging, levels = c("R", "NR"), labels = c("Responders", "Non-Responders"))
+contingency_table <- table(circ_data$ctDNA.NAC.Clearance, circ_data$Downstaging)
+fisher_exact_test <- fisher.test(contingency_table)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+
+# Swapping x and y in ggplot function to make bar plot vertical
+ggplot(table_df, aes(y = Var1, x = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(x = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA Clearance post-NAT (n = 27)", y = "ctDNA", x = "Patients (%)", fill = "Recurrence") +
+  scale_x_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("Responders" = "lightblue3", "Non-Responders" = "red")) + # define custom colors
+  theme(axis.text.y = element_text(angle = 0, hjust = 1.5, size = 14), # increase y-axis text size
+        axis.text.x = element_text(size = 14, color = "black"), # increase x-axis text size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+circ_data$ctDNA.NAC.Clearance <- factor(circ_data$ctDNA.NAC.Clearance, levels = c("FALSE", "TRUE"))
+circ_data$Downstaging <- factor(circ_data$Downstaging, levels = c("NR", "R"))
+
+logit_model <- glm(Downstaging ~ ctDNA.NAC.Clearance, data = circ_data, family = "binomial")
+summary(logit_model)
+OR <- exp(coef(logit_model))
+CI <- exp(confint(logit_model))
+P_values <- summary(logit_model)$coefficients[,4]
+result <- data.frame(
+  OddsRatio = OR,
+  Lower95CI = CI[, 1],
+  Upper95CI = CI[, 2],
+  Pvalue = P_values)
+print(result)
+```
+
+
+#DFS by ctDNA at MRD time point
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.MRD!="",]
+circ_data$DFS.months=circ_data$DFS.months-3
+circ_data <- circ_data[circ_data$DFS.months>=0,]
+circ_datadf <- as.data.frame(circ_data)
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.MRD, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.MRD, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","red"), title="DFS - ctDNA MRD time point", ylab= "Disease-Free Survival", xlab="Time (Months)", legend.labs=c("ctDNA Negative", "ctDNA Positive"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$ctDNA.MRD <- factor(circ_data$ctDNA.MRD, levels=c("NEGATIVE","POSITIVE"))
+cox_fit <- coxph(surv_object ~ ctDNA.MRD, data=circ_data) 
+ggforest(cox_fit,data = circ_data) 
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+
+#Extract values for HR, 95% CI, and p-value
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+#Fisher plot for ctDNA MRD time point and Rec Status
+circ_data$ctDNA.MRD <- factor(circ_data$ctDNA.MRD, levels = c("NEGATIVE", "POSITIVE"), labels = c("ctDNA(-)", "ctDNA(+)"))
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.MRD, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA MRD time point (n = 25)", x = "ctDNA", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#DFS by ctDNA at post-surgery
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.postop, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.postop, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","red"), title="DFS - ctDNA post-surgery", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("ctDNA Negative", "ctDNA Positive"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$ctDNA.postop <- factor(circ_data$ctDNA.postop, levels=c("NEGATIVE","POSITIVE"))
+cox_fit <- coxph(surv_object ~ ctDNA.postop, data=circ_data) 
+ggforest(cox_fit,data = circ_data) 
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+
+#Extract values for HR, 95% CI, and p-value
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+#Fisher plot for ctDNA post-surgery and Rec Status
+circ_data$ctDNA.postop <- factor(circ_data$ctDNA.postop, levels = c("NEGATIVE", "POSITIVE"), labels = c("ctDNA(-)", "ctDNA(+)"))
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.postop, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA post-surgery (n = 30)", x = "ctDNA", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#DFS by NAR score
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~NAR.Status, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ NAR.Status, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("red","blue","green"), title="DFS - NAR Score", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("High", "Low", "Mid"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$NAR.Status <- factor(circ_data$NAR.Status, levels=c("Low","Mid","High"))
+cox_fit <- coxphf(surv_object ~ NAR.Status, data=circ_data, firth=TRUE, pl=TRUE, maxit=1000)
+summary(cox_fit)
+
+#Fisher plot for NAR Score and Rec Status
+circ_data$NAR.Status <- factor(circ_data$NAR.Status, levels=c("Low","Mid","High"))
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$NAR.Status, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "NAR Score (n = 30)", x = "NAR Score", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#Association of ctDNA post-NAT with NAR Score
+```{r}
+#Boxplot & Fisher exact test for ctDNA post-NAT status with NAR score
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+circ_data$ctDNA.postNAC <- factor(circ_data$ctDNA.postNAC, levels = c("NEGATIVE", "POSITIVE"), labels = c("ctDNA(-)", "ctDNA(+)"))
+circ_data$NAR.Status <- factor(circ_data$NAR.Status, levels = c("Low","Mid","High"), labels = c("Low","Mid","High"))
+
+boxplot(NAR ~ ctDNA.postNAC, data=circ_data, main="ctDNA post-NAT | NAR Score", xlab="ctDNA post-NAT", ylab="NAR Score", col="white",border="black")
+m1 <- wilcox.test(NAR ~ ctDNA.postNAC, data=circ_data, na.rm=TRUE, paired=FALSE, exact=FALSE, conf.int=TRUE)
+print(m1)
+contingency_table <- table(circ_data$NAR.Status, circ_data$ctDNA.postNAC)
+print(contingency_table)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA post-NAT | NAR Score (n = 30)", x = "NAR Score", y = "Patients (%)", fill = "ctDNA post-NAT") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("ctDNA(-)" = "lightblue3", "ctDNA(+)" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+
+#DFS by ctDNA at post-NAT and NAR Score - 3 groups
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+circ_data$ctDNA.postNAT.NAR <- NA #first we create the variable for the ctDNA & NAC combination, and we assign values
+circ_data <- circ_data %>%
+  mutate(ctDNA.postNAT.NAR = case_when(
+    NAR.Score == "Low" & ctDNA.postNAC == "NEGATIVE" ~ 1,
+    NAR.Score == "Mid/High" & ctDNA.postNAC == "NEGATIVE" ~ 2,
+    NAR.Score == "Mid/High" & ctDNA.postNAC == "POSITIVE" ~ 3
+  ))
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.postNAT.NAR, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.postNAT.NAR, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = TRUE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","green", "red"), title="DFS - ctDNA post-NAT | NAR Score", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("ctDNA(-) & NAR Low", "ctDNA(-) & NAR Mid/High", "ctDNA(+) & NAR Mid/High"), legend.title="")
+summary(KM_curve, times= c(36))
+circ_data$ctDNA.postNAT.NAR <- factor(circ_data$ctDNA.postNAT.NAR, levels=c("1", "2", "3"), labels = c("ctDNA(-) & NAR Low", "ctDNA(-) & NAR Mid/High", "ctDNA(+) & NAR Mid/High"))
+cox_fit <- coxphf(surv_object ~ ctDNA.postNAT.NAR, data=circ_data) 
+summary(cox_fit)
+
+#Fisher plot for ctDNA post-NAT and NAR Score combination with Rec Status
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.postNAT.NAR, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA post-NAT | NAR Score (n = 30)", x = "ctDNA | NAR Score", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
+#Multivariate regression model for DFS
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+
+circ_datadf$Gender <- factor(circ_datadf$Gender, levels = c("Female", "Male"), labels = c("Female", "Male"))
+circ_datadf$ctDNA.postop <- factor(circ_datadf$ctDNA.postop, levels=c("NEGATIVE","POSITIVE"), labels = c("Negative", "Positive"))
+surv_object<-Surv(time = circ_datadf$DFS.months, event = circ_datadf$DFS.Event) 
+cox_fit <- coxph(surv_object ~ Gender + Age + NAR + ctDNA.postop, data=circ_datadf) 
+ggforest(cox_fit, data = circ_datadf, main = "Multivariate Regression Model for DFS", refLabel = "Reference Group")
+test.ph <- cox.zph(cox_fit)
+```
+
+
+#DFS by ctDNA at post-NAT and pCR - 3 groups
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+circ_data$ctDNA.pCR <- NA
+circ_data <- circ_data %>%
+  mutate(ctDNA.pCR = case_when(
+    ctDNA.postNAC == "NEGATIVE" & pCR == "TRUE" ~ "1",
+    ctDNA.postNAC == "NEGATIVE" & pCR == "FALSE" ~ "2",
+    ctDNA.postNAC == "POSITIVE" & pCR == "FALSE" ~ "3",
+  ))
+
+survfit(Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)~ctDNA.pCR, data = circ_data)
+circ_data <- circ_data[!is.na(circ_data$ctDNA.pCR),]
+circ_data$ctDNA.pCR <- factor(circ_data$ctDNA.pCR, levels=c("1","2", "3"), labels=c("pCR ctDNA (-)","No pCR ctDNA (-)", "No pCR ctDNA (+)"))
+survfit(Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)~ctDNA.pCR, data = circ_data)
+surv_object <-Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.pCR, data = circ_data,conf.int=0.95,conf.type="log-log")
+summary(KM_curve, times= c(36))
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue", "green", "red"), title="DFS - ctDNA post-NAC & pCR", ylab= "Disease-Free Survival", xlab="Months from surgery", legend.labs=c("pCR ctDNA (-)","No pCR ctDNA (-)", "No pCR ctDNA (+)"), legend.title="")
+
+rm(list=ls())
+setwd("~/Downloads")
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+circ_data$ctDNA.pCR <- NA
+circ_data <- circ_data %>%
+  mutate(ctDNA.pCR = case_when(
+    ctDNA.postNAC == "NEGATIVE" & pCR == "TRUE" ~ "1",
+    ctDNA.postNAC == "NEGATIVE" & pCR == "FALSE" ~ "2",
+    ctDNA.postNAC == "POSITIVE" & pCR == "FALSE" ~ "3"
+  ))
+circ_data$ctDNA.pCR <- factor(circ_data$ctDNA.pCR, levels=c("1","2","3"))
+surv_object <-Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)
+cox_fit <- coxphf(surv_object ~ ctDNA.pCR, data=circ_data)
+summary(cox_fit)
+```
+
+#DFS by ctDNA at MRD Timepoint and pCR - 3 groups
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.MRD!="",]
+circ_data$DFS.months=circ_data$DFS.months-3
+circ_data <- circ_data[circ_data$DFS.months>=0,]
+
+circ_data$ctDNA.pCR <- NA
+circ_data <- circ_data %>%
+  mutate(ctDNA.pCR = case_when(
+    ctDNA.MRD == "NEGATIVE" & pCR == "TRUE" ~ "1",
+    ctDNA.MRD == "NEGATIVE" & pCR == "FALSE" ~ "2",
+    ctDNA.MRD == "POSITIVE" & pCR == "FALSE" ~ "3",
+  ))
+
+survfit(Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)~ctDNA.pCR, data = circ_data)
+circ_data <- circ_data[!is.na(circ_data$ctDNA.pCR),]
+circ_data$ctDNA.pCR <- factor(circ_data$ctDNA.pCR, levels=c("1","2", "3"), labels=c("pCR ctDNA (-)","No pCR ctDNA (-)", "No pCR ctDNA (+)"))
+survfit(Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)~ctDNA.pCR, data = circ_data)
+surv_object <-Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.pCR, data = circ_data,conf.int=0.95,conf.type="log-log")
+summary(KM_curve, times= c(24))
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue", "green", "red"), title="DFS - ctDNA MRD Timepoint & pCR", ylab= "Disease-Free Survival", xlab="Time (Months)", legend.labs=c("pCR ctDNA (-)","No pCR ctDNA (-)", "No pCR ctDNA (+)"), legend.title="")
+
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_data <- circ_data[circ_data$ctDNA.MRD!="",]
+circ_data$DFS.months=circ_data$DFS.months-3
+circ_data <- circ_data[circ_data$DFS.months>=0,]
+
+circ_data$ctDNA.pCR <- NA
+circ_data <- circ_data %>%
+  mutate(ctDNA.pCR = case_when(
+    ctDNA.MRD == "NEGATIVE" & pCR == "TRUE" ~ "1",
+    ctDNA.MRD == "NEGATIVE" & pCR == "FALSE" ~ "2",
+    ctDNA.MRD == "POSITIVE" & pCR == "FALSE" ~ "3"
+  ))
+circ_data$ctDNA.pCR <- factor(circ_data$ctDNA.pCR, levels=c("1","2","3"))
+surv_object <-Surv(time = circ_data$RFS.months, event = circ_data$RFS.Event)
+cox_fit <- coxphf(surv_object ~ ctDNA.pCR, data=circ_data)
+summary(cox_fit)
+```
+
+#Univariate regression models for DFS for the factors used in the MVA
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+circ_datadf$Gender <- factor(circ_datadf$Gender, levels = c("Female", "Male"), labels = c("Female", "Male")) #univariate for gender
+cox_fit <- coxph(surv_object ~ Gender, data=circ_data)
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+cox_fit <- coxph(surv_object ~ Age, data=circ_data) #univariate for age
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+cox_fit <- coxph(surv_object ~ NAR, data=circ_data) #univariate for NAR
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+circ_datadf <- as.data.frame(circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+circ_data$ctDNA.postop <- factor(circ_data$ctDNA.postop, levels=c("NEGATIVE","POSITIVE"))
+cox_fit <- coxph(surv_object ~ ctDNA.postop, data=circ_data) #univariate for ctDNA post-surgery
+summary(cox_fit)
+cox_fit_summary <- summary(cox_fit)
+HR <- cox_fit_summary$coefficients[2]
+lower_CI <- cox_fit_summary$conf.int[3]
+upper_CI <- cox_fit_summary$conf.int[4]
+p_value <- cox_fit_summary$coefficients[5]
+label_text <- paste0("HR = ", round(HR, 2), " (", round(lower_CI, 2), "-", round(upper_CI, 2), "); p = ", round(p_value, 3))
+print(label_text)
+```
+
+
+#DFS by ctDNA Dynamics post-NAT to post-surgery - 3 groups
+```{r}
+rm(list=ls())
+setwd("~/Downloads") 
+circ_data <- read.csv("Rectal IRST_Clinical Data.csv")
+
+circ_data$ctDNA.Dynamics <- NA #first we create the variable
+circ_data <- circ_data %>%
+  mutate(ctDNA.Dynamics = case_when(
+    ctDNA.postNAC == "NEGATIVE" & ctDNA.postop == "NEGATIVE" ~ 1,
+    ctDNA.postNAC == "POSITIVE" & ctDNA.postop == "NEGATIVE" ~ 2,
+    ctDNA.postNAC == "POSITIVE" & ctDNA.postop == "POSITIVE" ~ 3))
+
+survfit(Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)~ctDNA.Dynamics, data = circ_data)
+surv_object <-Surv(time = circ_data$DFS.months, event = circ_data$DFS.Event)
+KM_curve <- survfit(surv_object ~ ctDNA.Dynamics, data = circ_data,conf.int=0.95,conf.type="log-log") 
+ggsurvplot(KM_curve, data = circ_data, pval = FALSE, conf.int = FALSE, risk.table = TRUE, break.time.by=12, palette=c("blue","green", "red"), title="DFS - ctDNA Dynamics post-NAT to post-surgery", ylab= "Disease-Free Survival", xlab="Months from Surgery", legend.labs=c("Persistently Negative", "Converted Negative","Persistently Positive"), legend.title="")
+summary(KM_curve, times= c(12))
+circ_data$ctDNA.Dynamics <- factor(circ_data$ctDNA.Dynamics, levels=c("1", "2", "3"), labels = c("Persistently Negative", "Converted Negative","Persistently Positive"))
+cox_fit <- coxph(surv_object ~ ctDNA.Dynamics, data=circ_data) 
+ggforest(cox_fit,data = circ_data) 
+summary(cox_fit)
+
+#Fisher plot for ctDNA Dynamics with Rec Status
+circ_data$DFS.Event <- factor(circ_data$DFS.Event, levels = c("FALSE", "TRUE"), labels = c("No Recurrence", "Recurrence"))
+contingency_table <- table(circ_data$ctDNA.Dynamics, circ_data$DFS.Event)
+chi_square_test <- chisq.test(contingency_table)
+print(chi_square_test)
+fisher_exact_test <- fisher.test(contingency_table)
+print(fisher_exact_test)
+print(contingency_table)
+table_df <- as.data.frame(contingency_table)
+table_df$Total <- ave(table_df$Freq, table_df$Var1, FUN = sum)
+table_df$Percentage <- table_df$Freq / table_df$Total
+table_df$MiddlePercentage <- table_df$Percentage / 2
+ggplot(table_df, aes(x = Var1, y = Percentage, fill = Var2)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(y = MiddlePercentage, label = Freq), position = "stack", color = "black", vjust = 1.5, size = 7) +
+  theme_minimal() +
+  labs(title = "ctDNA Dynamics (n = 29)", x = "ctDNA Dynamics", y = "Patients (%)", fill = "Recurrence") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("No Recurrence" = "lightblue3", "Recurrence" = "red")) + # define custom colors
+  theme(axis.text.x = element_text(angle = 0, hjust = 1.5, size = 14), # increase x-axis text size
+        axis.text.y = element_text(size = 14, color = "black"), # increase y-axis text size
+        axis.title.x = element_text(size = 14, color = "black"), # increase x-axis label size
+        axis.title.y = element_text(size = 14, color = "black"), # increase y-axis label size
+        legend.text = element_text(size = 12, color = "black"))  # increase Recurrence label size
+```
+
